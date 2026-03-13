@@ -833,7 +833,7 @@ The tokenizer outputs a table containing:
 
 ## Token Count
 
-Token count simply measures how many tokens the tokenizer produces for the text.
+Token count simply measures how many tokens the tokenizer produced for the input.
 
 Script used:
 
