@@ -80,7 +80,11 @@ After training, each file was encoded using the trained tokenizer.
 abctokz encode --model artifacts/task3_anthem_bpe --input data/input_english_national_anthem.txt
 ```
 Result
-```bash 
+```bash
+Encoding: Jana Gana 
+Mana Adhinayaka Jaya
+ He Bharata Bhagya  
+   Vidhata Pun...   
 ┏━━━━━┳━━━━━━━┳━━━━┓
 ┃ Pos ┃ Token ┃ ID ┃
 ┡━━━━━╇━━━━━━━╇━━━━┩
@@ -161,7 +165,9 @@ Encoding Devanagari
 abctokz encode --model artifacts/task3_anthem_bpe --input data/input_devanagari_national_anthem.txt
 ```
 Result
-```bash    
+```bash
+Encoding: जन गण मन 
+     अधिनायक जय हे 
 ┏━━━━━┳━━━━━━━┳━━━━┓
 ┃ Pos ┃ Token ┃ ID ┃
 ┡━━━━━╇━━━━━━━╇━━━━┩
@@ -192,6 +198,44 @@ Result
 ---
 
 ## Metrics
+
+### Token Count
+
+script
+ ```bash
+  @'
+from pathlib import Path
+from abctokz import Tokenizer
+
+model = r"artifacts\task3_anthem_bpe"
+eng_file = r"data\input_english_national_anthem.txt"
+dev_file = r"data\input_devanagari_national_anthem.txt"
+
+tok = Tokenizer.load(model)
+
+def read_lines(p):
+    return [x.strip() for x in Path(p).read_text(encoding="utf-8").splitlines() if x.strip()]
+
+def token_count(lines):
+    return sum(len(tok.encode(line)) for line in lines)
+
+eng_lines = read_lines(eng_file)
+dev_lines = read_lines(dev_file)
+
+eng_tokens = token_count(eng_lines)
+dev_tokens = token_count(dev_lines)
+
+print("English token count:", eng_tokens)
+print("Devanagari token count:", dev_tokens)
+'@ | python -
+```
+output
+```bash
+English token count: 318
+Devanagari token count: 227
+```
+
+###Fertility
 
 The key metric used in this experiment is **Fertility**, defined as:
 
