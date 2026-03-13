@@ -548,3 +548,266 @@ Training the same tokenizer twice with the same corpus and configuration produce
 The only non-deterministic aspects are **external factors such as runtime performance**, which do not affect the correctness of the tokenizer.
 
 
+Below is a **clean, human-sounding `README.md` section** you can directly paste for **Task 7**.
+
+---
+
+# Task 7 — Does Encode → Decode Get You Back to Start?
+
+A tokenizer should ideally be **lossless**. This means that if we:
+
+```
+text → encode → decode
+```
+
+we should get **exactly the same text back**.
+
+To verify this, I tested the tokenizer on several multilingual examples including:
+
+* English text
+* Devanagari (Hindi)
+* Words with accented characters
+* Unicode edge cases
+
+**File:** `roundtrip_test.txt`
+
+```
+Hello world tokenizer test
+Jana Gana Mana Adhinayaka Jaya He
+जन गण मन अधिनायक जय हे
+नमस्ते दुनिया
+Cafe
+Café
+Café
+```
+
+---
+
+# Test Method
+
+Each sentence was passed through the tokenizer using the following pipeline:
+
+```
+original_text → tokenizer.encode() → tokenizer.decode()
+```
+
+Then the decoded output was compared with the original string.
+
+---
+
+# Round-Trip Results
+
+| Original Text                     | Decoded Output   | Match |
+| --------------------------------- | ---------------- | ----- |
+| Hello world tokenizer test        | *(empty string)* | No    |
+| Jana Gana Mana Adhinayaka Jaya He | aaaaaaaaaaa      | No    |
+| जन गण मन अधिनायक जय हे           | *(empty string)* | No    |
+| नमस्ते दुनिया                         | *(empty string)* | No    |
+| Cafe                              | Caf               | No    |
+| Café                              | Café              | Yes   |
+| Café                              | Caf               | No    |
+
+### Summary
+
+```
+Total tests: 7
+Exact matches: 1
+Round trip success rate: 0.142857
+```
+
+Only **1 out of 7 cases** produced an exact round-trip.
+
+---
+
+# Case 1 — Exact Round Trip (Lossless)
+
+Example:
+
+```
+Original: Café
+Decoded : Café
+Match   : True
+```
+
+### Why this works
+
+The tokenizer contains a **single token for the composed character `é`**, so the encoding and decoding process preserves the word exactly.
+
+```
+Café → [C, ##a, ##f, ##é] → Café
+```
+
+Since the character is stored as a **single Unicode codepoint**, decoding reconstructs the original string correctly.
+
+---
+
+# Case 2 — Lossy Round Trip
+
+Example:
+
+```
+Original: Cafe
+Decoded : Caf
+```
+
+### What changed?
+
+The final character **`e` disappeared** during decoding.
+
+Tokens:
+
+```
+[C, ##a, ##f, ##e]
+```
+
+During decoding, the tokenizer failed to correctly reconstruct the last token.
+
+### Why this happens
+
+This likely occurs because:
+
+* the tokenizer uses **subword tokens (`##`)**
+* the decoding logic may **incorrectly strip or merge suffix tokens**
+
+This causes the reconstructed string to lose characters.
+
+---
+
+# Unicode Edge Case — NFC vs NFD
+
+Another interesting example is:
+
+```
+Original: Café
+Decoded : Caf
+```
+
+At first glance, `Café` and `Café` look identical. However, they are **different Unicode representations**.
+
+### NFC (composed form)
+
+```
+Café
+```
+
+Character sequence:
+
+```
+C + a + f + é
+```
+
+### NFD (decomposed form)
+
+```
+Café
+```
+
+Character sequence:
+
+```
+C + a + f + e + ◌́
+```
+
+Here the accent is a **separate combining character**.
+
+The tokenizer splits it as:
+
+```
+[C, ##a, ##f, ##e, ##́]
+```
+
+During decoding, the combining accent is not reconstructed correctly, resulting in:
+
+```
+Caf
+```
+
+---
+
+# Is the Lossy Behavior a Bug?
+
+This depends on the intended design.
+
+Possible explanations:
+
+### 1. Implementation Bug
+
+If the tokenizer is supposed to be **fully reversible**, then losing characters during decoding is a **bug in the decode logic**.
+
+### 2. Acceptable Trade-off
+
+Some tokenizers sacrifice perfect reconstruction for **simpler token rules**, especially when using subword prefixes like `##`.
+
+### 3. Unicode Normalization Issues
+
+Unicode normalization differences (NFC vs NFD) can produce visually identical text that is **not byte-identical**, which may cause decoding differences.
+
+---
+
+# What `round_trip_success_rate` Measures
+
+The metric `round_trip_success_rate` checks whether:
+
+```
+decoded_text == original_text
+```
+
+If they match exactly, the test counts as successful.
+
+So the metric measures:
+
+* Exact string equality
+* Whether encode → decode preserves the text perfectly
+
+---
+
+# What the Metric Does NOT Measure
+
+However, this metric does **not detect several important cases**.
+
+### 1. Visual Equality
+
+Two strings can look identical but still fail the equality test.
+
+Example:
+
+```
+Café (NFC)
+Café (NFD)
+```
+
+They look the same but have **different Unicode codepoints**.
+
+---
+
+### 2. Semantic Equivalence
+
+The metric does not check if the decoded text **still has the same meaning**.
+
+Example:
+
+```
+Original: Cafe
+Decoded : Caf
+```
+
+The metric simply flags it as failure but does not explain **why**.
+
+---
+
+### 3. Partial Reconstruction Errors
+
+If a tokenizer drops or modifies characters, the metric only reports **failure**, not which tokens caused it.
+
+---
+
+# Key Insight
+
+A tokenizer may appear to work correctly in most cases, but **Unicode normalization and subword decoding rules can introduce subtle reconstruction errors**.
+
+This experiment shows that:
+
+* exact round-trip behavior is **not guaranteed**
+* Unicode representation plays an important role
+* round-trip evaluation should consider **both byte equality and Unicode normalization**
+
