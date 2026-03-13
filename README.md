@@ -894,6 +894,9 @@ output
 | English Transliteration | 317    | 55    | 5.763     |
 | Devanagari              | 227    | 55  1 | 4.203     |
 
+The results show that the English transliteration produces more tokens (317) compared to the Devanagari script (227), even though both contain the same 55 words. This leads to a higher fertility score for English transliteration (5.763) than for Devanagari (4.203).
+The English transliteration is less token efficient because it produces more tokens per word due to greater subword fragmentation by the tokenizer.
+
 ---
 
 ## Goal of the Experiment
